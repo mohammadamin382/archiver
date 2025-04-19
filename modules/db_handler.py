@@ -245,9 +245,11 @@ def get_db_manager():
     if db_type == 'sqlite':
         # Import SQLite manager
         from .sqlite_handler import SQLiteManager
+        logger.info("Using SQLite as database backend")
         return SQLiteManager()
     else:
         # Use MySQL manager
+        logger.info("Using MySQL as database backend")
         return DatabaseManager()
 
 def setup_database(db_manager):
