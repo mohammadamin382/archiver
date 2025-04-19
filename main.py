@@ -1,4 +1,3 @@
-
 import os
 from dotenv import load_dotenv
 import telebot
@@ -10,7 +9,7 @@ import schedule
 import time
 
 # Import modules
-from modules.db_handler import setup_database, DatabaseManager
+from modules.db_handler import setup_database, DatabaseManager, get_db_manager # Added get_db_manager import
 from modules.config_manager import ConfigManager
 from modules.archive_manager import ArchiveManager
 from modules.search_manager import SearchManager
@@ -35,10 +34,12 @@ if not TOKEN:
 bot = telebot.TeleBot(TOKEN)
 logger.info("Bot initialized")
 
-# Setup database
-db_manager = DatabaseManager()
+# Initialize database manager based on DB_TYPE
+db_manager = get_db_manager()
+
+# Setup database and tables
 if not setup_database(db_manager):
-    logger.error("Failed to setup database. Exiting.")
+    logger.error("Failed to setup database. Exiting...")
     sys.exit(1)
 
 # Initialize managers
@@ -57,18 +58,18 @@ message_handler.setup_message_handlers()
 def start_command(message):
     user_id = message.from_user.id
     username = message.from_user.username or "Unknown"
-    
+
     # Register user if not exists
     user_manager.register_user(user_id, username)
-    
+
     # Check if bot is enabled for regular users
     if not config_manager.is_bot_enabled() and not user_manager.is_admin(user_id):
         bot.send_message(message.chat.id, "🔴 ربات در حال حاضر غیر فعال است.")
         return
-    
+
     # Create keyboard
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-    
+
     # Different keyboards for admin and regular users
     if user_manager.is_admin(user_id):
         # Admin keyboard
@@ -78,7 +79,7 @@ def start_command(message):
         backup_btn = types.KeyboardButton("💾 پشتیبان‌گیری")
         settings_btn = types.KeyboardButton("⚙️ تنظیمات")
         markup.add(archive_btn, search_btn, manage_users_btn, backup_btn, settings_btn)
-        
+
         bot.send_message(message.chat.id, 
                         "👋 سلام مدیر گرامی!\n\n"
                         "به ربات آرشیو پیشرفته خوش آمدید. از طریق دکمه‌های زیر می‌توانید ربات را مدیریت کنید:", 
@@ -89,7 +90,7 @@ def start_command(message):
         help_btn = types.KeyboardButton("❓ راهنما")
         contact_admin_btn = types.KeyboardButton("📞 ارتباط با مدیر")
         markup.add(search_btn, help_btn, contact_admin_btn)
-        
+
         bot.send_message(message.chat.id, 
                         "👋 سلام کاربر گرامی!\n\n"
                         "به ربات آرشیو پیشرفته خوش آمدید. از طریق دکمه‌های زیر می‌توانید از ربات استفاده کنید:", 
@@ -104,7 +105,7 @@ def help_command(message):
 @bot.message_handler(commands=['admin'])
 def admin_command(message):
     user_id = message.from_user.id
-    
+
     if user_manager.is_admin(user_id):
         # Show admin menu
         markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
@@ -114,7 +115,7 @@ def admin_command(message):
         backup_btn = types.KeyboardButton("💾 پشتیبان‌گیری")
         settings_btn = types.KeyboardButton("⚙️ تنظیمات")
         markup.add(archive_btn, search_btn, manage_users_btn, backup_btn, settings_btn)
-        
+
         bot.send_message(message.chat.id, 
                         "👑 پنل مدیریت:\n\n"
                         "از طریق دکمه‌های زیر می‌توانید ربات را مدیریت کنید:", 
@@ -127,12 +128,12 @@ def admin_command(message):
 def handle_private_text_messages(message):
     user_id = message.from_user.id
     text = message.text
-    
+
     # Check if bot is enabled for regular users
     if not config_manager.is_bot_enabled() and not user_manager.is_admin(user_id):
         bot.send_message(message.chat.id, "🔴 ربات در حال حاضر غیر فعال است.")
         return
-    
+
     # Admin commands
     if user_manager.is_admin(user_id):
         if text == "📦 تنظیم آرشیو جدید":
@@ -145,7 +146,7 @@ def handle_private_text_messages(message):
             config_manager.show_settings(message)
         elif text == "🔍 جستجو در آرشیو":
             search_manager.start_search(message)
-    
+
     # Commands for all users
     if text == "🔍 جستجو در آرشیو":
         search_manager.start_search(message)
@@ -178,15 +179,15 @@ def contact_admin(message):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     user_id = call.from_user.id
-    
+
     # Check if bot is enabled for regular users
     if not config_manager.is_bot_enabled() and not user_manager.is_admin(user_id):
         bot.answer_callback_query(call.id, "🔴 ربات در حال حاضر غیر فعال است.")
         return
-    
+
     # Extract callback data
     data = call.data
-    
+
     try:
         # Route to appropriate handler
         if data.startswith('archive_'):
@@ -219,11 +220,11 @@ def start_scheduler():
 def handle_document(message):
     """Handle document uploads (for backup restoration)"""
     user_id = message.from_user.id
-    
+
     # Only admins can restore backups
     if not user_manager.is_admin(user_id):
         return
-        
+
     # Check if user is in restore flow
     # The backup manager will handle this if the user is in the right state
 
@@ -233,7 +234,7 @@ if __name__ == "__main__":
         scheduler_thread = threading.Thread(target=start_scheduler)
         scheduler_thread.daemon = True
         scheduler_thread.start()
-        
+
         logger.info("Starting bot polling...")
         # Start the bot
         bot.polling(none_stop=True, interval=0)
