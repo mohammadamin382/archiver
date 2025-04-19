@@ -13,19 +13,41 @@ class ConfigManager:
         
     def get_config(self, name, default=None):
         """Get configuration value by name"""
-        result = self.db.fetch_one('telegram_archive_bot', 
-                                "SELECT value FROM config WHERE name = %s", 
-                                (name,))
+        # Check if we're using SQLite or MySQL
+        import os
+        db_type = os.getenv('DB_TYPE', 'mysql').lower()
+        
+        if db_type == 'sqlite':
+            result = self.db.fetch_one('telegram_archive_bot', 
+                                    "SELECT value FROM config WHERE name = ?", 
+                                    (name,))
+        else:
+            result = self.db.fetch_one('telegram_archive_bot', 
+                                    "SELECT value FROM config WHERE name = %s", 
+                                    (name,))
+                                    
         if result:
             return result['value']
         return default
         
     def set_config(self, name, value):
         """Set configuration value"""
-        self.db.execute_query('telegram_archive_bot', 
-                            "INSERT INTO config (name, value) VALUES (%s, %s) "
-                            "ON DUPLICATE KEY UPDATE value = %s", 
-                            (name, value, value))
+        # Check if we're using SQLite or MySQL
+        import os
+        db_type = os.getenv('DB_TYPE', 'mysql').lower()
+        
+        if db_type == 'sqlite':
+            # SQLite uses different syntax for UPSERT operations
+            self.db.execute_query('telegram_archive_bot', 
+                                "INSERT INTO config (name, value) VALUES (?, ?) "
+                                "ON CONFLICT(name) DO UPDATE SET value = ?", 
+                                (name, value, value))
+        else:
+            # MySQL syntax
+            self.db.execute_query('telegram_archive_bot', 
+                                "INSERT INTO config (name, value) VALUES (%s, %s) "
+                                "ON DUPLICATE KEY UPDATE value = %s", 
+                                (name, value, value))
         
     def is_bot_enabled(self):
         """Check if bot is enabled for regular users"""
