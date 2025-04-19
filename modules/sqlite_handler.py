@@ -128,6 +128,10 @@ class SQLiteManager:
     def execute_query(self, db_name, query, params=None):
         """Execute a query on the database (db_name is ignored)"""
         try:
+            # Convert MySQL %s style parameters to SQLite ? style
+            if params and '%s' in query:
+                query = query.replace('%s', '?')
+                
             connection = self.connect()
             if connection:
                 cursor = connection.cursor()
